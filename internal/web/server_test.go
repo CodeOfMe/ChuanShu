@@ -297,8 +297,8 @@ func TestIndexContainsI18nAndPickUI(t *testing.T) {
 	buf := new(bytes.Buffer)
 	_, _ = buf.ReadFrom(resp.Body)
 	body := buf.Bytes()
-	// UI now ships four locales and the native-picker buttons.
-	for _, needle := range []string{"data-lang=\"ja\"", "data-lang=\"ru\"", "shareBrowse", "outBrowse", "api/pick/"} {
+	// UI now ships four locales (as a dropdown) and the native-picker buttons.
+	for _, needle := range []string{`value="ja"`, `value="ru"`, "langSel", "shareBrowse", "outBrowse", "api/pick/"} {
 		if !bytes.Contains(body, []byte(needle)) {
 			t.Fatalf("index missing %q", needle)
 		}

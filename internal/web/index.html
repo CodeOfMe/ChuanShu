@@ -44,18 +44,17 @@
   h1 { margin: 0; font-size: 22px; letter-spacing: 1px; }
   h1 .en { color: var(--muted); font-size: 14px; margin-left: 6px; font-weight: 400; }
   .tag { color: var(--muted); font-size: 12px; }
-  #langbar { display: flex; gap: 4px; }
-  #langbar button {
-    background: transparent;
-    color: var(--muted);
+  #langSel {
+    background: var(--panel-2);
+    color: var(--text);
     border: 1px solid var(--border);
-    padding: 4px 9px;
-    border-radius: 7px;
-    font-size: 12px;
-    font-weight: 500;
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 13px;
     cursor: pointer;
+    outline: none;
   }
-  #langbar button.active { background: var(--accent); color: #062233; border-color: var(--accent); }
+  #langSel:focus { border-color: var(--accent); }
   main {
     max-width: 1000px;
     margin: 16px auto;
@@ -138,11 +137,13 @@
 <body>
 <header>
   <h1>传书<span class="en">Chuanshu · LAN P2P</span></h1>
-  <nav id="langbar">
-    <button data-lang="zh">中文</button>
-    <button data-lang="en">EN</button>
-    <button data-lang="ja">日本語</button>
-    <button data-lang="ru">RU</button>
+  <nav>
+    <select id="langSel" aria-label="Language / 语言 / 言語 / Язык">
+      <option value="zh">中文</option>
+      <option value="en">English</option>
+      <option value="ja">日本語</option>
+      <option value="ru">Русский</option>
+    </select>
   </nav>
 </header>
 <main>
@@ -428,10 +429,7 @@ function applyLang() {
   }
   setAttrAll('data-i18n-ph', 'placeholder');
   setAttrAll('data-i18n-title', 'title');
-  var btns = document.querySelectorAll('#langbar button');
-  for (var j = 0; j < btns.length; j++) {
-    btns[j].classList.toggle('active', btns[j].getAttribute('data-lang') === LANG);
-  }
+  el('langSel').value = LANG;
   refreshStatus(); refreshDiscover();
 }
 function setAttrAll(attr, dom) {
@@ -551,9 +549,7 @@ el('refresh1').addEventListener('click', function (ev) { ev.preventDefault(); re
 el('refresh2').addEventListener('click', function (ev) { ev.preventDefault(); refreshDiscover(); });
 
 // language switcher
-Array.prototype.forEach.call(document.querySelectorAll('#langbar button'), function (b) {
-  b.addEventListener('click', function () { setLang(b.getAttribute('data-lang')); });
-});
+el('langSel').addEventListener('change', function () { setLang(el('langSel').value); });
 
 applyLang();
 setInterval(refreshStatus, 1500);
