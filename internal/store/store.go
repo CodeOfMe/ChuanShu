@@ -10,6 +10,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/CodeOfMe/ChuanShu/internal/protocol"
 )
@@ -83,6 +84,33 @@ func OpenExisting(path string, meta *protocol.Metadata) (*Store, error) {
 	return &Store{Meta: meta, Target: path, file: f}, nil
 }
 
+// sanitizeName guards the download path against traversal via a peer-supplied
+// metadata Name. Legitimate names come from filepath.Base of the seeder's file
+// and therefore contain no path separators; a malicious peer could try to smuggle
+// one (e.g. "../../.ssh/authorized_keys") to make a downloader write outside its
+// target directory. Info-hash verification already binds the name to the hash the
+// downloader asked for, so forging such a name would require a SHA-256 collision,
+// but we refuse it here as defense in depth and to survive future refactors that
+// might relax verification.
+func sanitizeName(name string) (string, error) {
+	if name == "" || name == "." || name == ".." {
+		return "", protocol.ErrBadFrame
+	}
+	// Reject anything that is not already a single path element: on Unix a Base
+	// name has no "/", and on Windows neither "/" nor "\". filepath.Base of a
+	// name containing a separator changes it (or returns a root), so a mismatch
+	// signals an attempt to escape the directory.
+	if base := filepath.Base(name); base != name {
+		return "", protocol.ErrBadFrame
+	}
+	// Also guard against a raw separator that Base would leave untouched on some
+	// platforms (e.g. backslash on Unix).
+	if strings.ContainsAny(name, `/\`) {
+		return "", protocol.ErrBadFrame
+	}
+	return name, nil
+}
+
 // CreateDownload prepares a Store for an incoming download of meta's file. The
 // finished file will be written to dir/meta.Name; a hidden .part file is used
 // until all pieces are verified.
@@ -90,7 +118,11 @@ func CreateDownload(dir string, meta *protocol.Metadata) (*Store, error) {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
-	target := filepath.Join(dir, meta.Name)
+	name, err := sanitizeName(meta.Name)
+	if err != nil {
+		return nil, err
+	}
+	target := filepath.Join(dir, name)
 	partial := target + ".part"
 	// Open (or create) the partial without truncating so an interrupted download
 	// can resume: already-written pieces survive and are re-verified by the

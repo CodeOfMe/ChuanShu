@@ -86,6 +86,26 @@ func TestWritePieceRejectsBadHash(t *testing.T) {
 	}
 }
 
+// TestCreateDownloadRejectsPathTraversal ensures a peer-supplied metadata Name
+// cannot escape the download directory via ".." segments. Even though forging
+// such a name would require breaking SHA-256 (the info hash binds Name), we
+// reject it as defense in depth.
+func TestCreateDownloadRejectsPathTraversal(t *testing.T) {
+	for _, bad := range []string{"../../etc/passwd", "..", "/abs/path", "sub/dir.bin", "a\\b"} {
+		meta := &protocol.Metadata{Name: bad, Length: 4, PieceLength: 4, PieceHashes: [][]byte{{1}}} // 1 piece
+		if _, err := CreateDownload(t.TempDir(), meta); err == nil {
+			t.Fatalf("CreateDownload should reject Name=%q", bad)
+		}
+	}
+	// A plain base name is fine.
+	meta := &protocol.Metadata{Name: "ok.bin", Length: 4, PieceLength: 4, PieceHashes: [][]byte{{1}}}
+	st, err := CreateDownload(t.TempDir(), meta)
+	if err != nil {
+		t.Fatalf("CreateDownload should accept plain name: %v", err)
+	}
+	st.Close()
+}
+
 // TestWritePieceRejectsOutOfRange guards against a malicious peer sending a
 // piece response that names an index outside the file (pieceSize==0). It must be
 // rejected as a hash mismatch and must never WriteAt past the truncated length.
