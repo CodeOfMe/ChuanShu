@@ -35,7 +35,7 @@
 `chuanshu` 是一个 Go 单文件可执行程序。
 
 ```sh
-# 从源码安装（Go 1.22+）
+# 从源码安装（Go 1.26+）
 go install github.com/fredchuanshu/chuanshu/cmd/chuanshu@latest
 
 # 或在仓库内构建
@@ -131,7 +131,7 @@ chuanshu hash bigfile.iso
 
 ## 运行环境
 
-- 构建需要 Go 1.22+（唯一依赖 `golang.org/x/sys`）。
+- 构建需要 Go 1.26+（唯一依赖 `golang.org/x/sys`）。
 - 本工具使用 IPv4 组播做发现、临时 TCP 端口传数据。某些系统的防火墙首次会弹出授权。
 - 发现依赖局域网允许组播。家庭/办公网络一般没问题，但“访客网络”/隔离型 Wi-Fi 或
   系统防火墙常常会拦截组播。

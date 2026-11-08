@@ -41,7 +41,7 @@ one binary.
 `chuanshu` is a single Go binary.
 
 ```sh
-# From source (Go 1.22+)
+# From source (Go 1.26+)
 go install github.com/fredchuanshu/chuanshu/cmd/chuanshu@latest
 
 # Or build in the repo
@@ -146,7 +146,7 @@ is already on disk.
 
 ## Requirements
 
-- Go 1.22+ to build (only dependency: `golang.org/x/sys`).
+- Go 1.26+ to build (only dependency: `golang.org/x/sys`).
 - The tool uses IPv4 multicast for discovery and ephemeral TCP ports for data.
   On some systems the OS firewall may prompt for network access the first time.
 - Peer discovery relies on multicast being allowed on the local network. This is
