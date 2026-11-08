@@ -111,6 +111,20 @@ SEEDERS  SIZE      NAME          INFO HASH
 chuanshu hash bigfile.iso
 ```
 
+### 5. Optional: local web UI
+
+If a terminal is not your thing, run the same node as a background service and
+open a browser tab to drive it.
+
+```sh
+chuanshu serve            # prints a URL like http://127.0.0.1:52345/ and opens it
+```
+
+The UI lets you pick a file to share, paste a hash to download, and watch
+progress bars as pieces flow. The HTTP server binds **loopback only** — peers on
+the LAN still reach the node directly over the same UDP-multicast + TCP swarm
+transport the CLI uses, and nothing is exposed to the network.
+
 ### Options
 
 | Command | Flag | Default | Meaning |
@@ -118,6 +132,8 @@ chuanshu hash bigfile.iso
 | `share` | `--piece <KiB>` | `256` | piece size in KiB |
 | `get`   | `--out <dir>`   | `.`   | output directory |
 | `ls`    | `--wait <s>`    | `4`   | seconds to listen for peers |
+| `serve` | `--addr <h:p>`  | `127.0.0.1:0` | loopback address to bind the UI (port 0 = auto) |
+| `serve` | `--no-open`     | off   | do not auto-open a browser window |
 
 Flags work in any position *after* the subcommand, e.g. `chuanshu get <hash> --out out` or
 `chuanshu get --out out <hash>`.
@@ -177,6 +193,7 @@ internal/protocol/   metadata, info hash, bitfield, wire framing
 internal/store/      piece hashing, verified reads/writes, resume
 internal/discovery/  UDP multicast peer discovery + registry
 internal/swarm/      node: TCP piece server, download loop, seeding
+internal/web/        optional local web UI (loopback HTTP control plane)
 ```
 
 ## License

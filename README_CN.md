@@ -102,6 +102,16 @@ SEEDERS  SIZE      NAME          INFO HASH
 chuanshu hash bigfile.iso
 ```
 
+### 5. 可选：本地网页界面
+
+不想用命令行也可以，直接 `chuanshu serve` 就会启动一个后台节点 + 网页 UI：
+
+```sh
+chuanshu serve            # 会打印形如 http://127.0.0.1:52345/ 的 URL 并自动打开浏览器
+```
+
+页面上可以选本机文件分享、粘贴 info hash 下载、看进度条。HTTP 服务**只绑定回环地址**（127.0.0.1），局域网里的其他节点仍通过原来的 UDP 组播 + TCP 与节点直接通信，不会暴露给网络。
+
 ### 选项
 
 | 命令    | 参数            | 默认  | 含义             |
@@ -109,6 +119,8 @@ chuanshu hash bigfile.iso
 | `share` | `--piece <KiB>` | `256` | 分块大小（KiB）  |
 | `get`   | `--out <dir>`   | `.`   | 输出目录         |
 | `ls`    | `--wait <s>`    | `4`   | 监听节点的秒数   |
+| `serve` | `--addr <h:p>`  | `127.0.0.1:0` | 网页 UI 绑定的回环地址（端口 0 = 自动） |
+| `serve` | `--no-open`     | 关    | 不自动打开浏览器 |
 
 参数可以放在子命令之后的任意位置，例如 `chuanshu get <hash> --out out`，也可写作
 `chuanshu get --out out <hash>`。
@@ -163,6 +175,7 @@ internal/protocol/   元数据、信息哈希、位图、帧编解码
 internal/store/      分块哈希、校验读写、断点续传
 internal/discovery/  UDP 组播节点发现与登记表
 internal/swarm/      节点：TCP 分块服务、下载循环、做种
+internal/web/        可选网页 UI（localhost HTTP 控制面）
 ```
 
 ## 许可

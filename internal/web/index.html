@@ -1,0 +1,299 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>传书 · Chuanshu</title>
+<style>
+  :root {
+    --bg: #0f1116;
+    --panel: #171a21;
+    --panel-2: #1e2128;
+    --border: #262a33;
+    --text: #e6e8eb;
+    --muted: #8b93a1;
+    --accent: #5ac8fa;
+    --ok: #5ddc9b;
+    --warn: #f6c177;
+    --err: #ff7b72;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f5f6f8; --panel: #ffffff; --panel-2: #f0f2f5; --border: #dfe1e6; --text: #1c1f24; --muted: #667085; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  header {
+    padding: 24px 24px 8px;
+    max-width: 1000px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  h1 { margin: 0; font-size: 22px; letter-spacing: 1px; }
+  h1 .en { color: var(--muted); font-size: 14px; margin-left: 6px; font-weight: 400; }
+  .tag { color: var(--muted); font-size: 12px; }
+  main {
+    max-width: 1000px;
+    margin: 16px auto;
+    padding: 0 24px 60px;
+    display: grid;
+    gap: 16px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .panel h2 { margin: 0 0 4px; font-size: 16px; }
+  .panel .sub { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  input[type=text] {
+    flex: 1;
+    min-width: 240px;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  button {
+    background: var(--accent);
+    color: #062233;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  button.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); }
+  .err { color: var(--err); margin-top: 10px; font-size: 13px; min-height: 1em; }
+  .ok { color: var(--ok); }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+  th { color: var(--muted); font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: 0.6px; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
+  .progress {
+    background: var(--panel-2);
+    border-radius: 999px;
+    overflow: hidden;
+    height: 8px;
+    width: 180px;
+  }
+  .bar { height: 100%; background: var(--accent); transition: width .3s ease; }
+  .bar.done { background: var(--ok); }
+  .stat { color: var(--muted); font-size: 12px; }
+  .empty { text-align: center; padding: 18px; color: var(--muted); }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: 11px; background: var(--panel-2); color: var(--muted); }
+  .badge.done { color: var(--ok); }
+  .actions button { padding: 4px 10px; font-size: 12px; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .toolbar .refresh { color: var(--muted); cursor: pointer; text-decoration: none; font-size: 12px; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 12px; }
+  .infoHashOut {
+    margin-top: 14px;
+    padding: 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    word-break: break-all;
+    display: none;
+  }
+  .infoHashOut.show { display: block; }
+  .infoHashOut .lbl { color: var(--muted); margin-right: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>传书<span class="en">Chuanshu · LAN P2P</span></h1>
+  <span class="tag" id="nodeAddr"></span>
+</header>
+<main>
+  <section class="panel">
+    <h2>分享一个文件</h2>
+    <div class="sub">填入本机上的文件路径(支持 <code>~</code>),点击「开始分享」后会自动向局域网广播。</div>
+    <div class="row">
+      <input id="sharePath" type="text" placeholder="/path/to/file.iso   或  ~/Downloads/video.mkv">
+      <input id="pieceKiB" type="text" style="max-width:100px" placeholder="256" title="piece size in KiB">
+      <button id="shareBtn">开始分享</button>
+    </div>
+    <div id="shareErr" class="err"></div>
+    <div id="shareOut" class="infoHashOut"></div>
+  </section>
+
+  <section class="panel">
+    <h2>下载一个文件</h2>
+    <div class="sub">输入 64 位 info hash,和本机接收目录。文件会先落到 <code>&lt;name&gt;.part</code>,完成后重命名。</div>
+    <div class="row">
+      <input id="getHash" type="text" placeholder="64-hex info hash">
+      <input id="getOut" type="text" style="max-width:220px" placeholder="接收目录 (默认 .)" title="output directory">
+      <button id="getBtn">开始下载</button>
+    </div>
+    <div id="getErr" class="err"></div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <div>
+        <h2 style="display:inline">我的文件</h2>
+        <div class="sub" style="display:inline;margin-left:8px">这台机器正在做种或下载的文件</div>
+      </div>
+      <a class="refresh" href="#" id="refresh1">刷新</a>
+    </div>
+    <table>
+      <thead><tr><th>文件</th><th>大小</th><th>状态</th><th>进度</th><th>节点</th></tr></thead>
+      <tbody id="statusBody"><tr><td colspan="5" class="empty">加载中…</td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <div>
+        <h2 style="display:inline">局域网发现</h2>
+        <div class="sub" style="display:inline;margin-left:8px">同一网段其他节点正在分享的文件</div>
+      </div>
+      <a class="refresh" href="#" id="refresh2">刷新</a>
+    </div>
+    <table>
+      <thead><tr><th>文件</th><th>大小</th><th>做种数</th><th class="hash">info hash</th><th></th></tr></thead>
+      <tbody id="discBody"><tr><td colspan="5" class="empty">加载中…</td></tr></tbody>
+    </table>
+  </section>
+</main>
+<footer>传书 v<span id="ver">0.1.0</span> · 本地界面仅监听 127.0.0.1</footer>
+
+<script>
+function el(id) { return document.getElementById(id); }
+function fmtBytes(n) {
+  if (!n && n !== 0) return '-';
+  var u = ['B','KiB','MiB','GiB','TiB'], i = 0;
+  n = Number(n);
+  while (n >= 1024 && i < u.length-1) { n /= 1024; i++; }
+  return (n < 10 && i > 0 ? n.toFixed(2) : Math.round(n)) + ' ' + u[i];
+}
+function shortHash(h) { return h.slice(0, 6) + '…' + h.slice(-4); }
+function postJSON(url, body) {
+  return fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) })
+    .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j; }); });
+}
+function getJSON(url) {
+  return fetch(url).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+
+// --- share ---
+el('shareBtn').addEventListener('click', function () {
+  el('shareErr').textContent = '';
+  el('shareOut').classList.remove('show');
+  var path = el('sharePath').value.trim();
+  if (!path) { el('shareErr').textContent = '请输入文件路径'; return; }
+  var piece = parseInt(el('pieceKiB').value, 10);
+  var body = {path: path};
+  if (!isNaN(piece) && piece > 0) body.pieceKiB = piece;
+  el('shareBtn').disabled = true;
+  el('shareBtn').textContent = '哈希中…';
+  postJSON('/api/share', body).then(function (r) {
+    el('shareOut').innerHTML =
+      '<span class="lbl">info hash:</span>' + esc(r.infoHash) +
+      '<br><span class="lbl">文件:</span>' + esc(r.name) +
+      ' <span class="stat">' + fmtBytes(r.length) + ' × ' + r.pieces + ' pieces</span>';
+    el('shareOut').classList.add('show');
+    refreshStatus();
+  }).catch(function (e) {
+    el('shareErr').textContent = '失败: ' + e.message;
+  }).finally(function () {
+    el('shareBtn').disabled = false;
+    el('shareBtn').textContent = '开始分享';
+  });
+});
+
+// --- get ---
+el('getBtn').addEventListener('click', function () {
+  el('getErr').textContent = '';
+  var hash = el('getHash').value.trim();
+  var out = el('getOut').value.trim() || '.';
+  if (!/^[0-9a-fA-F]{64}$/.test(hash)) { el('getErr').textContent = '请输入 64 位十六进制 info hash'; return; }
+  el('getBtn').disabled = true;
+  el('getBtn').textContent = '查找中…';
+  postJSON('/api/get', {hash: hash, out: out}).then(function (r) {
+    el('getHash').value = '';
+    refreshStatus();
+  }).catch(function (e) {
+    el('getErr').textContent = '失败: ' + e.message;
+  }).finally(function () {
+    el('getBtn').disabled = false;
+    el('getBtn').textContent = '开始下载';
+  });
+});
+
+// --- status ---
+function refreshStatus() {
+  getJSON('/api/status').then(function (r) {
+    var body = el('statusBody');
+    if (!r.files || r.files.length === 0) { body.innerHTML = '<tr><td colspan="5" class="empty">还没有正在分享或下载的文件</td></tr>'; return; }
+    var html = '';
+    r.files.forEach(function (f) {
+      var pct = Math.round((f.progress || 0) * 10000) / 100;
+      var cls = f.complete ? 'bar done' : 'bar';
+      var badge = f.complete
+        ? '<span class="badge done">做种中</span>'
+        : '<span class="badge">下载中</span>';
+      html += '<tr><td>' + esc(f.name) + '</td>'
+           +  '<td class="stat">' + fmtBytes(f.length) + '</td>'
+           +  '<td>' + badge + '</td>'
+           +  '<td><div class="progress"><div class="' + cls + '" style="width:' + pct + '%"></div></div><span class="stat">' + pct + '%</span></td>'
+           +  '<td class="stat">' + (f.peers || 0) + '</td></tr>';
+    });
+    body.innerHTML = html;
+  });
+}
+function refreshDiscover() {
+  getJSON('/api/discover').then(function (r) {
+    var body = el('discBody');
+    if (!r.files || r.files.length === 0) { body.innerHTML = '<tr><td colspan="5" class="empty">尚未在局域网发现任何分享(首次刷新可能需要等几秒)</td></tr>'; return; }
+    var html = '';
+    r.files.forEach(function (f) {
+      html += '<tr><td>' + esc(f.name) + '</td>'
+           +  '<td class="stat">' + (f.size ? fmtBytes(f.size) : '-') + '</td>'
+           +  '<td class="stat">' + f.seeders + '</td>'
+           +  '<td class="hash" title="' + esc(f.hash) + '">' + esc(shortHash(f.hash)) + '</td>'
+           +  '<td class="actions"><button class="secondary" data-h="' + esc(f.hash) + '">下载</button></td></tr>';
+    });
+    body.innerHTML = html;
+    Array.prototype.forEach.call(body.querySelectorAll('button'), function (b) {
+      b.addEventListener('click', function () { el('getHash').value = b.getAttribute('data-h'); el('getHash').scrollIntoView({behavior:'smooth'}); el('getHash').focus(); });
+    });
+  });
+}
+el('refresh1').addEventListener('click', function (ev) { ev.preventDefault(); refreshStatus(); });
+el('refresh2').addEventListener('click', function (ev) { ev.preventDefault(); refreshDiscover(); });
+
+refreshStatus(); refreshDiscover();
+setInterval(refreshStatus, 1500);
+setInterval(refreshDiscover, 5000);
+
+// Best-effort: show the web addr + version once
+getJSON('/api/status').catch(function () {});
+</script>
+</body>
+</html>
