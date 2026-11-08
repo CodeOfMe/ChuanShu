@@ -132,6 +132,58 @@ func TestRegistryPeersAndSeeders(t *testing.T) {
 	}
 }
 
+// TestRegistryAddMergesStickyComplete verifies that re-adding a peer under the
+// same address updates LastSeen and makes Complete sticky (once a peer has
+// advertised a complete copy it stays counted as a seeder within the window),
+// which is what keeps SeederCount from flickering when a peer briefly reports
+// partial state.
+func TestRegistryAddMergesStickyComplete(t *testing.T) {
+	r := NewRegistry()
+	var ih [32]byte
+	ih[1] = 0xAB
+	key := encodeKey(ih)
+	r.add(key, &Peer{TCPAddr: "1.1.1.1:1", InfoHash: ih, Complete: false, LastSeen: time.Now()})
+	if got := r.Seeders(key, time.Minute); got != 0 {
+		t.Fatalf("Seeders before complete = %d, want 0", got)
+	}
+	// Same address, now complete -> merge updates the single entry (count stays 1).
+	r.add(key, &Peer{TCPAddr: "1.1.1.1:1", InfoHash: ih, Complete: true, LastSeen: time.Now()})
+	if got := r.Seeders(key, time.Minute); got != 1 {
+		t.Fatalf("Seeders after complete = %d, want 1", got)
+	}
+	if len(r.Peers(ih, "", time.Minute)) != 1 {
+		t.Fatal("re-adding same address must not create a duplicate peer")
+	}
+	// A later partial report must NOT clear the sticky complete flag.
+	r.add(key, &Peer{TCPAddr: "1.1.1.1:1", InfoHash: ih, Complete: false, LastSeen: time.Now()})
+	if got := r.Seeders(key, time.Minute); got != 1 {
+		t.Fatalf("Seeders after partial re-report = %d, want 1 (complete is sticky)", got)
+	}
+}
+
+// TestRegistryPruneRemovesStale verifies Prune drops expired peers and then
+// removes the hash bucket entirely once it is empty, so the registry does not
+// grow without bound over a long run.
+func TestRegistryPruneRemovesStale(t *testing.T) {
+	r := NewRegistry()
+	var ih [32]byte
+	ih[2] = 0xCD
+	key := encodeKey(ih)
+	old := time.Now().Add(-time.Hour)
+	r.add(key, &Peer{TCPAddr: "2.2.2.2:2", InfoHash: ih, Complete: true, LastSeen: old})
+	if len(r.Hashes(time.Minute)) != 0 {
+		t.Fatal("stale peer should already be hidden from Hashes")
+	}
+	r.Prune(time.Minute)
+	if hs := r.Hashes(time.Hour); len(hs) != 0 {
+		t.Fatalf("after Prune Hashes = %v, want empty (bucket should be deleted)", hs)
+	}
+	// Registry map should no longer hold the info hash at all.
+	if _, ok := r.peers[key]; ok {
+		t.Fatal("Prune should delete the empty hash bucket")
+	}
+}
+
 // encodeKey mirrors Hashes' encoding so tests can compare.
 func encodeKey(ih [32]byte) string {
 	return hex.EncodeToString(ih[:])
