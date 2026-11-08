@@ -149,6 +149,52 @@ func TestNodeResumePartial(t *testing.T) {
 	}
 }
 
+func TestNodeEmptyFile(t *testing.T) {
+	// Regression: an empty file (0 pieces) was reported as Done but the .part
+	// file was never renamed because the only finalization hook is triggered by
+	// the arrival of a piece, and an empty file never receives one. StartDownload
+	// must finalize immediately when the download starts already-complete.
+	src := filepath.Join(t.TempDir(), "empty.bin")
+	if err := os.WriteFile(src, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	seeder, err := NewNode(Options{DiscoveryPort: 51459, DataPort: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := seeder.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer seeder.Stop()
+	meta, err := seeder.AddSeed(src, 1024)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dlDir := t.TempDir()
+	dl, err := NewNode(Options{DiscoveryPort: 51459, DataPort: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dl.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer dl.Stop()
+	if err := dl.StartDownload(dlDir, meta); err != nil {
+		t.Fatal(err)
+	}
+	st, ok := dl.StatusFor(meta.InfoHashHex())
+	if !ok || !st.Complete {
+		t.Fatalf("expected complete immediately: %+v ok=%v", st, ok)
+	}
+	got, err := os.ReadFile(filepath.Join(dlDir, meta.Name))
+	if err != nil {
+		t.Fatalf("final file missing after StartDownload: %v", err)
+	}
+	if len(got) != 0 {
+		t.Fatalf("expected 0-byte file, got %d bytes", len(got))
+	}
+}
+
 // writePartial creates a .part file and fills it with the first half of pieces
 // so a subsequent StartDownload can detect them and resume.
 func writePartial(dir string, meta *protocol.Metadata, data []byte, piece int) error {
