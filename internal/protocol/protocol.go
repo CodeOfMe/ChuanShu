@@ -26,12 +26,23 @@ const Version = 1
 // that per-piece overhead stays negligible.
 const DefaultPieceSize = 256 * 1024
 
+// MaxPieceSize is the largest piece length a file may be split into. A piece is
+// carried in a single frame, and ReadFrame bounds ordinary frames at
+// DefaultMaxFrame (see below); a larger piece could not be received by a peer.
+// Deriving it from DefaultPieceSize*4 keeps the old implicit cap (DefaultMaxFrame
+// = MaxPieceSize + 1024) while letting BuildMetadata reject an oversized --piece
+// up front instead of silently producing a file nobody can download.
+const MaxPieceSize = DefaultPieceSize * 4
+
 // ProtocolErr sentinels.
 var (
 	ErrBadFrame     = errors.New("chuanshu: malformed frame")
 	ErrVersion      = errors.New("chuanshu: protocol version mismatch")
 	ErrUnknownInfo  = errors.New("chuanshu: unknown info hash")
 	ErrHashMismatch = errors.New("chuanshu: piece hash mismatch")
+	// ErrPieceTooLarge is returned when a piece length exceeds MaxPieceSize, so
+	// the frames that carry its pieces could not be received by a peer.
+	ErrPieceTooLarge = errors.New("chuanshu: piece length exceeds wire limit")
 )
 
 // Metadata describes a single shared file. It is the object whose canonical
@@ -156,6 +167,9 @@ func (m *Metadata) Verify() error {
 	if m.PieceLength <= 0 {
 		return ErrBadFrame
 	}
+	if m.PieceLength > MaxPieceSize {
+		return ErrPieceTooLarge
+	}
 	if m.NumPieces() != len(m.PieceHashes) {
 		return ErrBadFrame
 	}
@@ -191,8 +205,12 @@ func NewBitfield(n int) *Bitfield {
 	return &Bitfield{n: n, b: make([]byte, (n+7)/8)}
 }
 
-// Set marks a piece as present.
+// Set marks a piece as present. Out-of-range indices are ignored so a caller
+// that mis-handles an untrusted piece index cannot corrupt memory or panic.
 func (b *Bitfield) Set(i int) {
+	if i < 0 || i >= b.n {
+		return
+	}
 	b.mu.Lock()
 	b.b[i/8] |= 1 << (uint(i) % 8)
 	b.mu.Unlock()
@@ -290,16 +308,43 @@ func WriteFrame(w io.Writer, t MsgType, payload []byte) error {
 	return nil
 }
 
-// ReadFrame reads a framed message, returning its type and payload.
+// Message-size limits. A single hard cap cannot fit every message type: piece
+// frames are bounded by the piece length (DefaultPieceSize plus a little
+// slack), but a metadata frame is hex-encoded and grows with the *number* of
+// pieces. Capping everything at the piece size makes files larger than a few
+// GiB un-downloadable, because their metadata frame would be rejected before it
+// could be read. So we keep a small default cap for ordinary/piece frames and
+// let the metadata reader ask for a much larger one via ReadFrameWithMax.
+const (
+	// DefaultMaxFrame bounds piece, index and handshake frames. It is MaxPieceSize
+	// plus a little slack so a full piece passes while still rejecting an absurd
+	// length field before we allocate for it.
+	DefaultMaxFrame = uint32(MaxPieceSize + 1024)
+	// MetaMaxFrame bounds a single metadata frame. One piece hash is 64 hex
+	// characters; this allowance covers files up to roughly 32 GiB at the
+	// default piece size (and far more with larger pieces) while still
+	// rejecting a corrupt length field far below the 4 GiB a uint32 allows.
+	MetaMaxFrame = uint32(64 * 1024 * 1024)
+)
+
+// ReadFrame reads a framed message using DefaultMaxFrame.
 func ReadFrame(r io.Reader) (MsgType, []byte, error) {
+	return ReadFrameWithMax(r, DefaultMaxFrame)
+}
+
+// ReadFrameWithMax reads a framed message, rejecting any whose declared payload
+// exceeds maxLen. The length is a 4-byte field, so an attacker could claim
+// nearly 4 GiB; the caller supplies a max appropriate to the message it expects
+// (DefaultMaxFrame for pieces, MetaMaxFrame for metadata) so we never allocate
+// for an absurd frame.
+func ReadFrameWithMax(r io.Reader, maxLen uint32) (MsgType, []byte, error) {
 	header := make([]byte, 5)
 	if _, err := io.ReadFull(r, header); err != nil {
 		return 0, nil, err
 	}
 	t := MsgType(header[0])
 	length := binary.BigEndian.Uint32(header[1:])
-	// Guard against absurd frames (piece size plus slack).
-	if length > uint32(DefaultPieceSize*4+1024) {
+	if length > maxLen {
 		return t, nil, ErrBadFrame
 	}
 	payload := make([]byte, length)

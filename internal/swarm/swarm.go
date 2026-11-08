@@ -335,7 +335,9 @@ func (n *Node) GetMeta(addr string, infoHash [32]byte) (*protocol.Metadata, erro
 		return nil, err
 	}
 	_ = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
-	t, payload, err := protocol.ReadFrame(conn)
+	// Metadata frames scale with the piece count and can be far larger than a
+	// piece frame, so read them with the dedicated metadata limit.
+	t, payload, err := protocol.ReadFrameWithMax(conn, protocol.MetaMaxFrame)
 	if err != nil {
 		return nil, err
 	}

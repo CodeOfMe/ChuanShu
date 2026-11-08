@@ -1,6 +1,7 @@
 package swarm
 
 import (
+	"net"
 	"os"
 	"path/filepath"
 	"testing"
@@ -192,6 +193,82 @@ func TestNodeEmptyFile(t *testing.T) {
 	}
 	if len(got) != 0 {
 		t.Fatalf("expected 0-byte file, got %d bytes", len(got))
+	}
+}
+
+// TestGetMetaLargeMetadata exercises the metadata-retrieval path with metadata
+// whose wire frame is larger than the default piece-frame cap. Before the fix,
+// GetMeta read the metadata frame with ReadFrame's ~1 MiB limit, so any file
+// with more than ~16k pieces (about 4 GiB at the default piece size) could never
+// be downloaded: its metadata frame was rejected as a malformed frame. Here a
+// tiny file split into 1-byte pieces produces a huge metadata frame cheaply, so
+// we can assert GetMeta now succeeds over a real TCP connection.
+func TestGetMetaLargeMetadata(t *testing.T) {
+	const pieces = 17000 // 17000 * 64 hex chars ~= 1.06 MB > DefaultMaxFrame
+	src := filepath.Join(t.TempDir(), "manypieces.bin")
+	data := make([]byte, pieces)
+	for i := range data {
+		data[i] = byte(i)
+	}
+	if err := os.WriteFile(src, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	seeder, err := NewNode(Options{DiscoveryPort: 51461, DataPort: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := seeder.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer seeder.Stop()
+	meta, err := seeder.AddSeed(src, 1) // 1-byte pieces -> one hash per byte
+	if err != nil {
+		t.Fatal(err)
+	}
+	if meta.NumPieces() != pieces {
+		t.Fatalf("expected %d pieces, got %d", pieces, meta.NumPieces())
+	}
+	// Preconditions that make this a genuine regression test: the metadata frame
+	// must exceed the piece-frame cap (the old limit) yet stay under the metadata
+	// cap, otherwise the test would not have failed before the fix.
+	ser, err := meta.MarshalJSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if uint32(len(ser)) <= protocol.DefaultMaxFrame {
+		t.Fatalf("test not exercising the bug: meta size %d <= DefaultMaxFrame %d", len(ser), protocol.DefaultMaxFrame)
+	}
+	if uint32(len(ser)) > protocol.MetaMaxFrame {
+		t.Fatalf("test meta size %d exceeds MetaMaxFrame %d", len(ser), protocol.MetaMaxFrame)
+	}
+
+	dl, err := NewNode(Options{DiscoveryPort: 51461, DataPort: 0})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dl.Start(); err != nil {
+		t.Fatal(err)
+	}
+	defer dl.Stop()
+
+	// Dial the seeder's TCP listener on loopback (the advertised host is the
+	// machine's primary outbound IP, which may not accept loopback dials on every
+	// host; the port is what matters for reaching this node's server).
+	_, port, err := net.SplitHostPort(seeder.MyAddr())
+	if err != nil {
+		t.Fatalf("split seeder addr %q: %v", seeder.MyAddr(), err)
+	}
+	ih := meta.InfoHash()
+	got, err := dl.GetMeta(net.JoinHostPort("127.0.0.1", port), ih)
+	if err != nil {
+		t.Fatalf("GetMeta with oversized metadata failed: %v", err)
+	}
+	if got.InfoHashHex() != meta.InfoHashHex() {
+		t.Fatalf("info hash mismatch after GetMeta: %s vs %s", got.InfoHashHex(), meta.InfoHashHex())
+	}
+	if got.NumPieces() != pieces {
+		t.Fatalf("piece count after GetMeta = %d, want %d", got.NumPieces(), pieces)
 	}
 }
 

@@ -86,6 +86,37 @@ func TestWritePieceRejectsBadHash(t *testing.T) {
 	}
 }
 
+// TestWritePieceRejectsOutOfRange guards against a malicious peer sending a
+// piece response that names an index outside the file (pieceSize==0). It must be
+// rejected as a hash mismatch and must never WriteAt past the truncated length.
+func TestWritePieceRejectsOutOfRange(t *testing.T) {
+	dir := t.TempDir()
+	src := filepath.Join(dir, "src.bin")
+	data := []byte("0123456789")
+	writeFile(t, src, data)
+	meta, _, err := BuildMetadata(src, 4) // 3 pieces: 4,4,2
+	if err != nil {
+		t.Fatal(err)
+	}
+	dst, err := CreateDownload(t.TempDir(), meta)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer dst.Close()
+
+	// Nonexistent index with plausible data (size 4) and empty payload.
+	if err := dst.WritePiece(99, []byte("XXXX")); err != protocol.ErrHashMismatch {
+		t.Fatalf("WritePiece(99) = %v, want ErrHashMismatch", err)
+	}
+	if err := dst.WritePiece(99, nil); err != protocol.ErrHashMismatch {
+		t.Fatalf("WritePiece(99,nil) = %v, want ErrHashMismatch", err)
+	}
+	// Negative index too.
+	if err := dst.WritePiece(-1, data[0:4]); err != protocol.ErrHashMismatch {
+		t.Fatalf("WritePiece(-1) = %v, want ErrHashMismatch", err)
+	}
+}
+
 func TestCreateDownloadFinalizeAndResume(t *testing.T) {
 	dir := t.TempDir()
 	src := filepath.Join(dir, "src.bin")

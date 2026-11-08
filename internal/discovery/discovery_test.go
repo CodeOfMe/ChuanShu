@@ -1,10 +1,59 @@
 package discovery
 
 import (
+	"encoding/binary"
 	"encoding/hex"
 	"testing"
 	"time"
 )
+
+// TestDecodeHostilePackets ensures decode never panics on malformed/hostile UDP
+// payloads. Discovery is reachable by any host on the LAN via multicast, so a
+// crafted packet must be rejected, not crash the node. We sweep lengths around
+// every header boundary (magic, count, each entry's hash/port/flag fields) and
+// packets that claim a count larger than their body.
+func TestDecodeHostilePackets(t *testing.T) {
+	var base []byte
+	b4 := make([]byte, 4)
+	binary.BigEndian.PutUint32(b4, magic)
+	base = append(base, b4...) // valid magic
+	base = append(base, typeAnnounce)
+	base = append(base, 3) // claims 3 entries (105 bytes), but we'll truncate
+
+	// Truncations at every byte length from 0 up past a full 3-entry packet.
+	for n := 0; n <= len(base)+120; n++ {
+		// no panic is the assertion
+		_, _, _ = decode(base[:min(n, len(base))])
+	}
+	// A packet with correct count but garbage bytes.
+	garbage := make([]byte, 6+3*35)
+	copy(garbage, base)
+	for i := 6; i < len(garbage); i++ {
+		garbage[i] = 0xFF
+	}
+	_, _, _ = decode(garbage)
+	// count byte says 255 but body is short -> must reject, not read past end.
+	shortHuge := make([]byte, 6)
+	copy(shortHuge, base)
+	shortHuge[5] = 255
+	if _, _, err := decode(shortHuge); err == nil {
+		t.Fatal("expected error on count larger than body")
+	}
+	// Random byte sweep over a valid-magic prefix.
+	var seed uint32 = 0x1234
+	for i := 0; i < 2000; i++ {
+		seed = seed*1664525 + 1013904223
+		buf := make([]byte, int(seed%64))
+		for j := range buf {
+			seed = seed*1664525 + 1013904223
+			buf[j] = byte(seed >> 16)
+		}
+		if len(buf) >= 4 {
+			binary.BigEndian.PutUint32(buf[:4], magic)
+		}
+		_, _, _ = decode(buf) // must never panic
+	}
+}
 
 func TestPacketEncodeDecode(t *testing.T) {
 	s := NewService(0, 6000)

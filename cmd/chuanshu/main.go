@@ -228,7 +228,7 @@ func cmdGet(args []string) error {
 func cmdLs(args []string) error {
 	fs := flag.NewFlagSet("ls", flag.ExitOnError)
 	waitSec := fs.Int("wait", 4, "seconds to listen for peers")
-	fs.Parse(args)
+	fs.Parse(reorderFlags(fs, args))
 
 	n, err := buildNode()
 	if err != nil {
@@ -269,7 +269,7 @@ func cmdLs(args []string) error {
 func cmdHash(args []string) error {
 	fs := flag.NewFlagSet("hash", flag.ExitOnError)
 	pieceKiB := fs.Int("piece", 256, "piece size in KiB")
-	fs.Parse(args)
+	fs.Parse(reorderFlags(fs, args))
 	if fs.NArg() < 1 {
 		return fmt.Errorf("hash requires a file path")
 	}
