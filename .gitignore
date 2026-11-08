@@ -1,0 +1,18 @@
+# Binaries
+/chuanshu
+/chuanshu.exe
+/bin/
+/dist/
+
+# Test / build artifacts
+*.test
+*.out
+coverage.*
+
+# Transfer artifacts
+*.part
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
