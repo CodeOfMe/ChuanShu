@@ -120,9 +120,12 @@ open a browser tab to drive it.
 chuanshu serve            # prints a URL like http://127.0.0.1:52345/ and opens it
 ```
 
-The UI lets you pick a file to share, paste a hash to download, and watch
-progress bars as pieces flow. The HTTP server binds **loopback only** — peers on
-the LAN still reach the node directly over the same UDP-multicast + TCP swarm
+The UI lets you pick a file to share (via the native OS file dialog, or type
+the path directly), paste a hash to download, choose a destination folder, and
+watch progress bars as pieces flow. The interface is available in **four
+languages** (中文 / English / 日本語 / Русский), auto-detected from your browser
+and switchable from the header. The HTTP server binds **loopback only** — peers
+on the LAN still reach the node directly over the same UDP-multicast + TCP swarm
 transport the CLI uses, and nothing is exposed to the network.
 
 ### Options

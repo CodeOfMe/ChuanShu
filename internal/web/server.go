@@ -8,6 +8,7 @@ import (
 	_ "embed"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -26,11 +27,13 @@ var indexHTML []byte
 //
 // Routes:
 //
-//	GET  /              -- the single-page UI
-//	GET  /api/discover  -- files advertised by other LAN peers
-//	GET  /api/status    -- status of every file this node holds
-//	POST /api/share     -- begin seeding a local file
-//	POST /api/get       -- begin downloading a file by info hash
+//	GET  /                  -- the single-page UI
+//	GET  /api/discover      -- files advertised by other LAN peers
+//	GET  /api/status        -- status of every file this node holds
+//	POST /api/share         -- begin seeding a local file
+//	POST /api/get           -- begin downloading a file by info hash
+//	POST /api/pick/file     -- open a native file picker, return its path
+//	POST /api/pick/folder   -- open a native folder picker, return its path
 //
 // Server is safe for concurrent use.
 type Server struct {
@@ -59,6 +62,8 @@ func NewServer(n *swarm.Node, addr string) (*Server, error) {
 	mux.HandleFunc("/api/status", s.handleStatus)
 	mux.HandleFunc("/api/share", s.handleShare)
 	mux.HandleFunc("/api/get", s.handleGet)
+	mux.HandleFunc("/api/pick/file", s.handlePickFile)
+	mux.HandleFunc("/api/pick/folder", s.handlePickFolder)
 	s.http = &http.Server{Handler: mux}
 	return s, nil
 }
@@ -286,6 +291,37 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{"infoHash": hashHex, "name": meta.Name, "length": meta.Length})
+}
+
+// --- native pickers ---
+
+func (s *Server) handlePickFile(w http.ResponseWriter, r *http.Request) {
+	s.handlePick(w, r, pickFile)
+}
+
+func (s *Server) handlePickFolder(w http.ResponseWriter, r *http.Request) {
+	s.handlePick(w, r, pickFolder)
+}
+
+// handlePick opens a native dialog via fn and returns the chosen absolute path.
+// Cancelling the dialog is a normal outcome, not an error: it returns 200 with
+// an empty path so the caller can distinguish "cancelled" from "unsupported".
+func (s *Server) handlePick(w http.ResponseWriter, r *http.Request, fn func() (string, error)) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "POST only", http.StatusMethodNotAllowed)
+		return
+	}
+	path, err := fn()
+	switch {
+	case errors.Is(err, errCancelled):
+		writeJSON(w, map[string]any{"path": ""})
+	case errors.Is(err, ErrNoPicker):
+		writeError(w, http.StatusNotImplemented, "no native picker on this platform")
+	case err != nil:
+		writeError(w, http.StatusInternalServerError, err.Error())
+	default:
+		writeJSON(w, map[string]any{"path": path})
+	}
 }
 
 // --- helpers ---

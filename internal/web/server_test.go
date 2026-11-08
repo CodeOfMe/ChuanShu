@@ -3,7 +3,9 @@ package web
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
@@ -231,5 +233,74 @@ func TestEndToEndShareGetStatus(t *testing.T) {
 	}
 	if !done {
 		t.Fatal("B never reported completion")
+	}
+}
+
+func TestPickMethodsRestricted(t *testing.T) {
+	s := startNode(t)
+	resp, err := http.Get(baseURL(s) + "/api/pick/file")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusMethodNotAllowed {
+		t.Fatalf("GET /api/pick/file = %d, want 405", resp.StatusCode)
+	}
+}
+
+// TestHandlePickBranches exercises every outcome path of handlePick with stub
+// pickers so we cover the branch logic without opening a real GUI dialog.
+func TestHandlePickBranches(t *testing.T) {
+	cases := []struct {
+		name       string
+		stub       func() (string, error)
+		wantStatus int
+		wantPath   string // exact match; ignored for non-200
+	}{
+		{"ok", func() (string, error) { return "/tmp/selected.bin", nil }, 200, "/tmp/selected.bin"},
+		{"cancel", func() (string, error) { return "", errCancelled }, 200, ""},
+		{"unsupported", func() (string, error) { return "", ErrNoPicker }, http.StatusNotImplemented, ""},
+		{"fail", func() (string, error) { return "", errors.New("boom") }, http.StatusInternalServerError, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			n, _ := swarm.NewNode(swarm.Options{})
+			s := &Server{node: n}
+			req := httptest.NewRequest(http.MethodPost, "/api/pick/file", nil)
+			rec := httptest.NewRecorder()
+			s.handlePick(rec, req, tc.stub)
+			if rec.Code != tc.wantStatus {
+				t.Fatalf("status = %d, want %d", rec.Code, tc.wantStatus)
+			}
+			if tc.wantStatus == 200 {
+				var out struct {
+					Path string `json:"path"`
+				}
+				if err := json.NewDecoder(rec.Body).Decode(&out); err != nil {
+					t.Fatal(err)
+				}
+				if out.Path != tc.wantPath {
+					t.Fatalf("path = %q, want %q", out.Path, tc.wantPath)
+				}
+			}
+		})
+	}
+}
+
+func TestIndexContainsI18nAndPickUI(t *testing.T) {
+	s := startNode(t)
+	resp, err := http.Get(baseURL(s) + "/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	buf := new(bytes.Buffer)
+	_, _ = buf.ReadFrom(resp.Body)
+	body := buf.Bytes()
+	// UI now ships four locales and the native-picker buttons.
+	for _, needle := range []string{"data-lang=\"ja\"", "data-lang=\"ru\"", "shareBrowse", "outBrowse", "api/pick/"} {
+		if !bytes.Contains(body, []byte(needle)) {
+			t.Fatalf("index missing %q", needle)
+		}
 	}
 }
