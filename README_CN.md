@@ -135,6 +135,10 @@ chuanshu hash bigfile.iso
 - 本工具使用 IPv4 组播做发现、临时 TCP 端口传数据。某些系统的防火墙首次会弹出授权。
 - 发现依赖局域网允许组播。家庭/办公网络一般没问题，但“访客网络”/隔离型 Wi-Fi 或
   系统防火墙常常会拦截组播。
+- 已在 linux、darwin、freebsd、openbsd、netbsd、dragonfly、windows（amd64/arm64/386）
+  以及 js/wasm、plan9、wasip1 上通过交叉编译验证。Windows 平台使用 IP_ADD_MEMBERSHIP
+  但没有 SO_REUSEPORT，所以同一台 Windows 主机上只能启动一个 `chuanshu` 实例来绑定
+  共享的发现端口。
 
 ## 安全说明
 
