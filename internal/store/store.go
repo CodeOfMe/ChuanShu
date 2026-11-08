@@ -11,7 +11,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/fredchuanshu/chuanshu/internal/protocol"
+	"github.com/CodeOfMe/ChuanShu/internal/protocol"
 )
 
 // BuildMetadata reads a source file and produces transfer metadata: splits it

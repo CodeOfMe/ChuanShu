@@ -36,7 +36,7 @@
 
 ```sh
 # 从源码安装（Go 1.26+）
-go install github.com/fredchuanshu/chuanshu/cmd/chuanshu@latest
+go install github.com/CodeOfMe/ChuanShu/cmd/chuanshu@latest
 
 # 或在仓库内构建
 cd chuanshu

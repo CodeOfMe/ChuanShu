@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
-	"github.com/fredchuanshu/chuanshu/internal/protocol"
-	"github.com/fredchuanshu/chuanshu/internal/store"
+	"github.com/CodeOfMe/ChuanShu/internal/protocol"
+	"github.com/CodeOfMe/ChuanShu/internal/store"
 )
 
 // buildMeta computes transfer metadata for a file without starting a node. It

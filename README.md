@@ -42,7 +42,7 @@ one binary.
 
 ```sh
 # From source (Go 1.26+)
-go install github.com/fredchuanshu/chuanshu/cmd/chuanshu@latest
+go install github.com/CodeOfMe/ChuanShu/cmd/chuanshu@latest
 
 # Or build in the repo
 cd chuanshu

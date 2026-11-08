@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/fredchuanshu/chuanshu/internal/protocol"
+	"github.com/CodeOfMe/ChuanShu/internal/protocol"
 )
 
 // TestNodeSeedAndDownload runs a seeder and a downloader node inside one test

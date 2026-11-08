@@ -1,4 +1,4 @@
-module github.com/fredchuanshu/chuanshu
+module github.com/CodeOfMe/ChuanShu
 
 go 1.26.0
 

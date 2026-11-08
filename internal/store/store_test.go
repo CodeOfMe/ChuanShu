@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/fredchuanshu/chuanshu/internal/protocol"
+	"github.com/CodeOfMe/ChuanShu/internal/protocol"
 )
 
 func writeFile(t *testing.T, path string, data []byte) {

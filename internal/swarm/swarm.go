@@ -5,21 +5,21 @@
 package swarm
 
 import (
+	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net"
 	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/fredchuanshu/chuanshu/internal/discovery"
-	"github.com/fredchuanshu/chuanshu/internal/protocol"
-	"github.com/fredchuanshu/chuanshu/internal/store"
+	"github.com/CodeOfMe/ChuanShu/internal/discovery"
+	"github.com/CodeOfMe/ChuanShu/internal/protocol"
+	"github.com/CodeOfMe/ChuanShu/internal/store"
 )
 
 // Status describes the state of one shared file in this node.
@@ -98,7 +98,9 @@ func NewNode(opts Options) (*Node, error) {
 	if len(opts.ReservePeerID) == 8 {
 		copy(id, opts.ReservePeerID)
 	} else {
-		rand.Read(id)
+		if _, err := rand.Read(id); err != nil {
+			return nil, fmt.Errorf("generate peer id: %w", err)
+		}
 	}
 	n := &Node{
 		dataPort:   opts.DataPort,
@@ -211,6 +213,15 @@ func (n *Node) StartDownload(dir string, meta *protocol.Metadata) error {
 	for i := 0; i < meta.NumPieces(); i++ {
 		if st.HasPiece(i) {
 			have.Set(i)
+		}
+	}
+	// If the file was already complete on disk (empty file or a resumed partial
+	// with every piece verified), finalize now so the .part is renamed even
+	// though no further pieces will ever arrive.
+	if have.Complete() {
+		if err := st.Finalize(); err != nil {
+			st.DeletePartial()
+			return err
 		}
 	}
 	n.mu.Lock()

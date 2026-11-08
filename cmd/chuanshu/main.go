@@ -17,10 +17,14 @@ import (
 	"text/tabwriter"
 	"time"
 
-	"github.com/fredchuanshu/chuanshu/internal/swarm"
+	"github.com/CodeOfMe/ChuanShu/internal/swarm"
 )
 
-const version = "0.1.0"
+const (
+	version = "0.1.0"
+	// findTimeout bounds how long "get" waits for a seeder to appear.
+	findTimeout = 120 * time.Second
+)
 
 func main() {
 	if len(os.Args) < 2 {
@@ -176,7 +180,7 @@ func cmdGet(args []string) error {
 
 	fmt.Printf("Looking for %s on the local network...\n", infoHex)
 
-	deadline := time.Now().Add(120 * time.Second)
+	deadline := time.Now().Add(findTimeout)
 	sig := make(chan struct{})
 	go func() {
 		<-waitForSignal()
@@ -195,7 +199,7 @@ func cmdGet(args []string) error {
 			}
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("no seeder advertising %s found within %s", infoHex, deadline.Sub(time.Now()).Abs().Truncate(time.Second))
+			return fmt.Errorf("no seeder advertising %s found within %s", infoHex, findTimeout)
 		}
 		select {
 		case <-sig:
