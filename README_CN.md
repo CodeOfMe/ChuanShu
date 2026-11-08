@@ -43,6 +43,16 @@ cd chuanshu
 go build -o chuanshu ./cmd/chuanshu
 ```
 
+[`python/`](python/) 目录下还有一个纯 Python 实现，与 Go 版本**协议完全兼容**：Python
+节点与 Go 节点对同一文件计算出的 info hash 相同，可以直接互相当种子。它零第三方依赖
+（仅用标准库），并已发布到 PyPI。
+
+```sh
+pipx install chuanshu     # 或：pip install chuanshu
+```
+
+详见 [`python/README.md`](python/README.md)。
+
 ## 用法
 
 文件由它的**信息哈希**（内容的一个短十六进制摘要）标识。在主机上拿到哈希后，把

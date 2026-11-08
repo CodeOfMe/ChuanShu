@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>传书 · Chuanshu</title>
+<style>
+  :root {
+    --bg: #0f1116;
+    --panel: #171a21;
+    --panel-2: #1e2128;
+    --border: #262a33;
+    --text: #e6e8eb;
+    --muted: #8b93a1;
+    --accent: #5ac8fa;
+    --ok: #5ddc9b;
+    --warn: #f6c177;
+    --err: #ff7b72;
+    --radius: 12px;
+  }
+  @media (prefers-color-scheme: light) {
+    :root { --bg: #f5f6f8; --panel: #ffffff; --panel-2: #f0f2f5; --border: #dfe1e6; --text: #1c1f24; --muted: #667085; }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", "Yu Gothic", sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  header {
+    padding: 24px 24px 8px;
+    max-width: 1000px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  h1 { margin: 0; font-size: 22px; letter-spacing: 1px; }
+  h1 .en { color: var(--muted); font-size: 14px; margin-left: 6px; font-weight: 400; }
+  .tag { color: var(--muted); font-size: 12px; }
+  #langSel {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 5px 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    outline: none;
+  }
+  #langSel:focus { border-color: var(--accent); }
+  main {
+    max-width: 1000px;
+    margin: 16px auto;
+    padding: 0 24px 60px;
+    display: grid;
+    gap: 16px;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .panel h2 { margin: 0 0 4px; font-size: 16px; }
+  .panel .sub { color: var(--muted); font-size: 13px; margin-bottom: 14px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  input[type=text] {
+    flex: 1;
+    min-width: 240px;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 9px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+    outline: none;
+  }
+  input[type=text]:focus { border-color: var(--accent); }
+  button {
+    background: var(--accent);
+    color: #062233;
+    border: none;
+    padding: 9px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+  }
+  button:disabled { opacity: .5; cursor: default; }
+  button.secondary { background: var(--panel-2); color: var(--text); border: 1px solid var(--border); white-space: nowrap; }
+  .err { color: var(--err); margin-top: 10px; font-size: 13px; min-height: 1em; }
+  .ok { color: var(--ok); }
+  table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+  th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+  th { color: var(--muted); font-weight: 500; text-transform: uppercase; font-size: 11px; letter-spacing: 0.6px; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); }
+  .progress {
+    background: var(--panel-2);
+    border-radius: 999px;
+    overflow: hidden;
+    height: 8px;
+    width: 180px;
+  }
+  .bar { height: 100%; background: var(--accent); transition: width .3s ease; }
+  .bar.done { background: var(--ok); }
+  .stat { color: var(--muted); font-size: 12px; }
+  .empty { text-align: center; padding: 18px; color: var(--muted); }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 6px; font-size: 11px; background: var(--panel-2); color: var(--muted); }
+  .badge.done { color: var(--ok); }
+  .actions button { padding: 4px 10px; font-size: 12px; }
+  .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .toolbar .refresh { color: var(--muted); cursor: pointer; text-decoration: none; font-size: 12px; }
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 12px; }
+  .infoHashOut {
+    margin-top: 14px;
+    padding: 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 12px;
+    word-break: break-all;
+    display: none;
+  }
+  .infoHashOut.show { display: block; }
+  .infoHashOut .lbl { color: var(--muted); margin-right: 6px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>传书<span class="en">Chuanshu · LAN P2P</span></h1>
+  <nav>
+    <select id="langSel" aria-label="Language / 语言 / 言語 / Язык">
+      <option value="zh">中文</option>
+      <option value="en">English</option>
+      <option value="ja">日本語</option>
+      <option value="ru">Русский</option>
+    </select>
+  </nav>
+</header>
+<main>
+  <section class="panel">
+    <h2 data-i18n="share.title"></h2>
+    <div class="sub" data-i18n="share.sub"></div>
+    <div class="row">
+      <input id="sharePath" type="text" data-i18n-ph="share.pathPh">
+      <button id="shareBrowse" class="secondary" data-i18n="share.browse"></button>
+      <input id="pieceKiB" type="text" style="max-width:100px" placeholder="256" data-i18n-title="share.pieceTitle">
+      <button id="shareBtn" data-i18n="share.btn"></button>
+    </div>
+    <div id="shareErr" class="err"></div>
+    <div id="shareOut" class="infoHashOut"></div>
+  </section>
+
+  <section class="panel">
+    <h2 data-i18n="dl.title"></h2>
+    <div class="sub" data-i18n="dl.sub"></div>
+    <div class="row">
+      <input id="getHash" type="text" data-i18n-ph="dl.hashPh">
+      <input id="getOut" type="text" style="max-width:220px" data-i18n-ph="dl.outPh">
+      <button id="outBrowse" class="secondary" data-i18n="dl.browse"></button>
+      <button id="getBtn" data-i18n="dl.btn"></button>
+    </div>
+    <div id="getErr" class="err"></div>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <div>
+        <h2 style="display:inline" data-i18n="mine.title"></h2>
+        <div class="sub" style="display:inline;margin-left:8px" data-i18n="mine.sub"></div>
+      </div>
+      <a class="refresh" href="#" id="refresh1" data-i18n="refresh"></a>
+    </div>
+    <table>
+      <thead><tr>
+        <th data-i18n="col.name"></th><th data-i18n="col.size"></th><th data-i18n="col.status"></th><th data-i18n="col.progress"></th><th data-i18n="col.peers"></th>
+      </tr></thead>
+      <tbody id="statusBody"><tr><td colspan="5" class="empty" data-i18n="loading"></td></tr></tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <div class="toolbar">
+      <div>
+        <h2 style="display:inline" data-i18n="disc.title"></h2>
+        <div class="sub" style="display:inline;margin-left:8px" data-i18n="disc.sub"></div>
+      </div>
+      <a class="refresh" href="#" id="refresh2" data-i18n="refresh"></a>
+    </div>
+    <table>
+      <thead><tr>
+        <th data-i18n="col.name"></th><th data-i18n="col.size"></th><th data-i18n="col.seeders"></th><th class="hash" data-i18n="col.hash"></th><th></th>
+      </tr></thead>
+      <tbody id="discBody"><tr><td colspan="5" class="empty" data-i18n="loading"></td></tr></tbody>
+    </table>
+  </section>
+</main>
+<footer>传书 v<span id="ver">0.1.0</span> · <span data-i18n="footer"></span></footer>
+
+<script>
+function el(id) { return document.getElementById(id); }
+function fmtBytes(n) {
+  if (!n && n !== 0) return '-';
+  var u = ['B','KiB','MiB','GiB','TiB'], i = 0;
+  n = Number(n);
+  while (n >= 1024 && i < u.length-1) { n /= 1024; i++; }
+  return (n < 10 && i > 0 ? n.toFixed(2) : Math.round(n)) + ' ' + u[i];
+}
+function shortHash(h) { return h.slice(0, 6) + '…' + h.slice(-4); }
+function postJSON(url, body) {
+  return fetch(url, { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) })
+    .then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j; }); });
+}
+function getJSON(url) {
+  return fetch(url).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); });
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+
+// --- i18n ---
+var STRINGS = {
+  zh: {
+    'share.title': '分享一个文件',
+    'share.sub': '选择本机上的文件,或直接填入路径(支持 <code>~</code>),点击「开始分享」后会自动向局域网广播。',
+    'share.pathPh': '/path/to/file.iso   或  ~/Downloads/video.mkv',
+    'share.browse': '浏览…',
+    'share.pieceTitle': '分片大小 (KiB)',
+    'share.btn': '开始分享',
+    'share.hashing': '哈希中…',
+    'share.errPath': '请输入文件路径',
+    'share.infoHashLbl': 'info hash:',
+    'share.fileLbl': '文件:',
+    'share.piecesLbl': 'pieces',
+    'dl.title': '下载一个文件',
+    'dl.sub': '输入 64 位 info hash,和本机接收目录。文件会先落到 <code>&lt;name&gt;.part</code>,完成后重命名。',
+    'dl.hashPh': '64-hex info hash',
+    'dl.outPh': '接收目录 (默认 .)',
+    'dl.browse': '选择目录…',
+    'dl.btn': '开始下载',
+    'dl.finding': '查找中…',
+    'dl.errHash': '请输入 64 位十六进制 info hash',
+    'mine.title': '我的文件',
+    'mine.sub': '这台机器正在做种或下载的文件',
+    'disc.title': '局域网发现',
+    'disc.sub': '同一网段其他节点正在分享的文件',
+    'disc.unknown': '(未知)',
+    'refresh': '刷新',
+    'col.name': '文件',
+    'col.size': '大小',
+    'col.status': '状态',
+    'col.progress': '进度',
+    'col.peers': '节点',
+    'col.seeders': '做种数',
+    'col.hash': 'info hash',
+    'download.btn': '下载',
+    'badge.seeding': '做种中',
+    'badge.downloading': '下载中',
+    'loading': '加载中…',
+    'empty.status': '还没有正在分享或下载的文件',
+    'empty.disc': '尚未在局域网发现任何分享(首次刷新可能需要等几秒)',
+    'footer': '本地界面仅监听 127.0.0.1',
+    'fail': '失败: ',
+    'pick.unsupported': '当前平台不支持原生选择器,请手动输入路径。',
+    'pick.failed': '选择失败'
+  },
+  en: {
+    'share.title': 'Share a file',
+    'share.sub': 'Pick a local file, or type a path directly (supports <code>~</code>). Clicking Share announces it to the LAN automatically.',
+    'share.pathPh': '/path/to/file.iso   or  ~/Downloads/video.mkv',
+    'share.browse': 'Browse…',
+    'share.pieceTitle': 'piece size in KiB',
+    'share.btn': 'Start sharing',
+    'share.hashing': 'Hashing…',
+    'share.errPath': 'Please enter a file path',
+    'share.infoHashLbl': 'info hash:',
+    'share.fileLbl': 'file:',
+    'share.piecesLbl': 'pieces',
+    'dl.title': 'Download a file',
+    'dl.sub': 'Enter a 64-hex info hash and a local destination directory. The file lands as <code>&lt;name&gt;.part</code> and is renamed when complete.',
+    'dl.hashPh': '64-hex info hash',
+    'dl.outPh': 'Destination directory (default .)',
+    'dl.browse': 'Choose folder…',
+    'dl.btn': 'Start download',
+    'dl.finding': 'Searching…',
+    'dl.errHash': 'Please enter a 64-hex info hash',
+    'mine.title': 'My files',
+    'mine.sub': 'Files this machine is seeding or downloading',
+    'disc.title': 'LAN discovery',
+    'disc.sub': 'Files other nodes on this subnet are sharing',
+    'disc.unknown': '(unknown)',
+    'refresh': 'Refresh',
+    'col.name': 'File',
+    'col.size': 'Size',
+    'col.status': 'Status',
+    'col.progress': 'Progress',
+    'col.peers': 'Peers',
+    'col.seeders': 'Seeders',
+    'col.hash': 'info hash',
+    'download.btn': 'Download',
+    'badge.seeding': 'Seeding',
+    'badge.downloading': 'Downloading',
+    'loading': 'Loading…',
+    'empty.status': 'No files being shared or downloaded yet',
+    'empty.disc': 'No shares discovered on the LAN yet (the first refresh may take a few seconds)',
+    'footer': 'Local UI listens on 127.0.0.1 only',
+    'fail': 'Failed: ',
+    'pick.unsupported': 'Native picker not available on this platform; enter the path manually.',
+    'pick.failed': 'Selection failed'
+  },
+  ja: {
+    'share.title': 'ファイルを共有',
+    'share.sub': 'ローカルのファイルを選ぶか、パスを直接入力します(<code>~</code> 対応)。「共有を開始」で自動的に LAN へ通知します。',
+    'share.pathPh': '/path/to/file.iso   または  ~/Downloads/video.mkv',
+    'share.browse': '参照…',
+    'share.pieceTitle': 'ピースサイズ (KiB)',
+    'share.btn': '共有を開始',
+    'share.hashing': 'ハッシュ計算中…',
+    'share.errPath': 'ファイルパスを入力してください',
+    'share.infoHashLbl': 'info hash:',
+    'share.fileLbl': 'ファイル:',
+    'share.piecesLbl': 'ピース',
+    'dl.title': 'ファイルをダウンロード',
+    'dl.sub': '64 桁の info hash と保存先ディレクトリを入力します。ファイルはまず <code>&lt;name&gt;.part</code> に保存され、完了後にリネームされます。',
+    'dl.hashPh': '64 桁の info hash',
+    'dl.outPh': '保存先ディレクトリ (既定 .)',
+    'dl.browse': 'フォルダを選択…',
+    'dl.btn': 'ダウンロード開始',
+    'dl.finding': '検索中…',
+    'dl.errHash': '64 桁の 16 進 info hash を入力してください',
+    'mine.title': 'マイファイル',
+    'mine.sub': 'このマシンが配信中またはダウンロード中のファイル',
+    'disc.title': 'LAN 検出',
+    'disc.sub': '同じセグメントの他ノードが共有中のファイル',
+    'disc.unknown': '(不明)',
+    'refresh': '更新',
+    'col.name': 'ファイル',
+    'col.size': 'サイズ',
+    'col.status': '状態',
+    'col.progress': '進捗',
+    'col.peers': 'ノード',
+    'col.seeders': 'シーダー数',
+    'col.hash': 'info hash',
+    'download.btn': 'ダウンロード',
+    'badge.seeding': '配信中',
+    'badge.downloading': 'ダウンロード中',
+    'loading': '読み込み中…',
+    'empty.status': '共有中・ダウンロード中のファイルはありません',
+    'empty.disc': 'LAN 上で共有が見つかりません(初回の更新は数秒かかることがあります)',
+    'footer': 'ローカル UI は 127.0.0.1 のみを待ち受けます',
+    'fail': '失敗: ',
+    'pick.unsupported': 'このプラットフォームではネイティブピッカーが使えません。パスを手入力してください。',
+    'pick.failed': '選択に失敗しました'
+  },
+  ru: {
+    'share.title': 'Поделиться файлом',
+    'share.sub': 'Выберите локальный файл или введите путь напрямую (поддерживается <code>~</code>). Нажатие «Начать раздачу» автоматически анонсирует его в LAN.',
+    'share.pathPh': '/path/to/file.iso   или  ~/Downloads/video.mkv',
+    'share.browse': 'Обзор…',
+    'share.pieceTitle': 'размер части в КиБ',
+    'share.btn': 'Начать раздачу',
+    'share.hashing': 'Хеширование…',
+    'share.errPath': 'Введите путь к файлу',
+    'share.infoHashLbl': 'info hash:',
+    'share.fileLbl': 'файл:',
+    'share.piecesLbl': 'частей',
+    'dl.title': 'Скачать файл',
+    'dl.sub': 'Введите 64-символьный info hash и локальную папку назначения. Файл сначала сохраняется как <code>&lt;name&gt;.part</code> и переименовывается по завершении.',
+    'dl.hashPh': '64-символьный info hash',
+    'dl.outPh': 'Папка назначения (по умолчанию .)',
+    'dl.browse': 'Выбрать папку…',
+    'dl.btn': 'Начать загрузку',
+    'dl.finding': 'Поиск…',
+    'dl.errHash': 'Введите 64-символьный info hash (hex)',
+    'mine.title': 'Мои файлы',
+    'mine.sub': 'Файлы, которые эта машина раздаёт или загружает',
+    'disc.title': 'Обнаружение в LAN',
+    'disc.sub': 'Файлы, которыми делятся другие узлы этой подсети',
+    'disc.unknown': '(неизвестно)',
+    'refresh': 'Обновить',
+    'col.name': 'Файл',
+    'col.size': 'Размер',
+    'col.status': 'Статус',
+    'col.progress': 'Прогресс',
+    'col.peers': 'Узлы',
+    'col.seeders': 'Раздающих',
+    'col.hash': 'info hash',
+    'download.btn': 'Скачать',
+    'badge.seeding': 'Раздача',
+    'badge.downloading': 'Загрузка',
+    'loading': 'Загрузка…',
+    'empty.status': 'Пока нет файлов в раздаче или загрузке',
+    'empty.disc': 'В LAN не найдено раздач (первое обновление может занять несколько секунд)',
+    'footer': 'Локальный интерфейс слушает только 127.0.0.1',
+    'fail': 'Ошибка: ',
+    'pick.unsupported': 'Нативный выбор недоступен на этой платформе; введите путь вручную.',
+    'pick.failed': 'Не удалось выбрать'
+  }
+};
+var HTML_KEYS = { 'share.sub': 1, 'dl.sub': 1 };
+
+function detectLang() {
+  try { var stored = localStorage.getItem('cs-lang'); if (stored && STRINGS[stored]) return stored; } catch (e) {}
+  var l = (navigator.language || 'zh').toLowerCase();
+  if (l.indexOf('en') === 0) return 'en';
+  if (l.indexOf('ja') === 0) return 'ja';
+  if (l.indexOf('ru') === 0) return 'ru';
+  return 'zh';
+}
+var LANG = detectLang();
+function t(k) {
+  var d = STRINGS[LANG] || STRINGS.zh;
+  if (k in d) return d[k];
+  return (k in STRINGS.zh) ? STRINGS.zh[k] : k;
+}
+function applyLang() {
+  document.documentElement.lang = ({ zh: 'zh-CN', en: 'en', ja: 'ja', ru: 'ru' })[LANG];
+  var nodes = document.querySelectorAll('[data-i18n]');
+  for (var i = 0; i < nodes.length; i++) {
+    var key = nodes[i].getAttribute('data-i18n');
+    if (HTML_KEYS[key]) nodes[i].innerHTML = t(key); else nodes[i].textContent = t(key);
+  }
+  setAttrAll('data-i18n-ph', 'placeholder');
+  setAttrAll('data-i18n-title', 'title');
+  el('langSel').value = LANG;
+  refreshStatus(); refreshDiscover();
+}
+function setAttrAll(attr, dom) {
+  var nodes = document.querySelectorAll('[' + attr + ']');
+  for (var i = 0; i < nodes.length; i++) nodes[i].setAttribute(dom, t(nodes[i].getAttribute(attr)));
+}
+function setLang(l) {
+  if (!STRINGS[l]) return;
+  LANG = l;
+  try { localStorage.setItem('cs-lang', l); } catch (e) {}
+  applyLang();
+}
+
+// --- native picker ---
+// Calls the local helper to open an OS dialog and fills the input with the
+// chosen absolute path. A cancel silently does nothing; a 501 means the
+// platform has no dialog and we prompt for manual entry instead.
+function pick(kind, input, errEl) {
+  errEl.textContent = '';
+  fetch('/api/pick/' + kind, { method: 'POST' }).then(function (r) {
+    if (r.status === 501) return null;
+    return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j; });
+  }).then(function (j) {
+    if (j === null) { errEl.textContent = t('pick.unsupported'); return; }
+    if (j.path) input.value = j.path;
+  }).catch(function (e) { errEl.textContent = t('pick.failed') + e.message; });
+}
+el('shareBrowse').addEventListener('click', function () { pick('file', el('sharePath'), el('shareErr')); });
+el('outBrowse').addEventListener('click', function () { pick('folder', el('getOut'), el('getErr')); });
+
+// --- share ---
+el('shareBtn').addEventListener('click', function () {
+  el('shareErr').textContent = '';
+  el('shareOut').classList.remove('show');
+  var path = el('sharePath').value.trim();
+  if (!path) { el('shareErr').textContent = t('share.errPath'); return; }
+  var piece = parseInt(el('pieceKiB').value, 10);
+  var body = {path: path};
+  if (!isNaN(piece) && piece > 0) body.pieceKiB = piece;
+  el('shareBtn').disabled = true;
+  el('shareBtn').textContent = t('share.hashing');
+  postJSON('/api/share', body).then(function (r) {
+    el('shareOut').innerHTML =
+      '<span class="lbl">' + t('share.infoHashLbl') + '</span>' + esc(r.infoHash) +
+      '<br><span class="lbl">' + t('share.fileLbl') + '</span>' + esc(r.name) +
+      ' <span class="stat">' + fmtBytes(r.length) + ' × ' + r.pieces + ' ' + t('share.piecesLbl') + '</span>';
+    el('shareOut').classList.add('show');
+    refreshStatus();
+  }).catch(function (e) {
+    el('shareErr').textContent = t('fail') + e.message;
+  }).finally(function () {
+    el('shareBtn').disabled = false;
+    el('shareBtn').textContent = t('share.btn');
+  });
+});
+
+// --- get ---
+el('getBtn').addEventListener('click', function () {
+  el('getErr').textContent = '';
+  var hash = el('getHash').value.trim();
+  var out = el('getOut').value.trim() || '.';
+  if (!/^[0-9a-fA-F]{64}$/.test(hash)) { el('getErr').textContent = t('dl.errHash'); return; }
+  el('getBtn').disabled = true;
+  el('getBtn').textContent = t('dl.finding');
+  postJSON('/api/get', {hash: hash, out: out}).then(function (r) {
+    el('getHash').value = '';
+    refreshStatus();
+  }).catch(function (e) {
+    el('getErr').textContent = t('fail') + e.message;
+  }).finally(function () {
+    el('getBtn').disabled = false;
+    el('getBtn').textContent = t('dl.btn');
+  });
+});
+
+// --- status ---
+function refreshStatus() {
+  getJSON('/api/status').then(function (r) {
+    var body = el('statusBody');
+    if (!r.files || r.files.length === 0) { body.innerHTML = '<tr><td colspan="5" class="empty">' + esc(t('empty.status')) + '</td></tr>'; return; }
+    var html = '';
+    r.files.forEach(function (f) {
+      var pct = Math.round((f.progress || 0) * 10000) / 100;
+      var cls = f.complete ? 'bar done' : 'bar';
+      var badge = f.complete
+        ? '<span class="badge done">' + esc(t('badge.seeding')) + '</span>'
+        : '<span class="badge">' + esc(t('badge.downloading')) + '</span>';
+      html += '<tr><td>' + esc(f.name) + '</td>'
+           +  '<td class="stat">' + fmtBytes(f.length) + '</td>'
+           +  '<td>' + badge + '</td>'
+           +  '<td><div class="progress"><div class="' + cls + '" style="width:' + pct + '%"></div></div><span class="stat">' + pct + '%</span></td>'
+           +  '<td class="stat">' + (f.peers || 0) + '</td></tr>';
+    });
+    body.innerHTML = html;
+  });
+}
+function refreshDiscover() {
+  getJSON('/api/discover').then(function (r) {
+    var body = el('discBody');
+    if (!r.files || r.files.length === 0) { body.innerHTML = '<tr><td colspan="5" class="empty">' + esc(t('empty.disc')) + '</td></tr>'; return; }
+    var html = '';
+    r.files.forEach(function (f) {
+      var name = (f.name === '(未知)') ? t('disc.unknown') : f.name;
+      html += '<tr><td>' + esc(name) + '</td>'
+           +  '<td class="stat">' + (f.size ? fmtBytes(f.size) : '-') + '</td>'
+           +  '<td class="stat">' + f.seeders + '</td>'
+           +  '<td class="hash" title="' + esc(f.hash) + '">' + esc(shortHash(f.hash)) + '</td>'
+           +  '<td class="actions"><button class="secondary" data-h="' + esc(f.hash) + '">' + esc(t('download.btn')) + '</button></td></tr>';
+    });
+    body.innerHTML = html;
+    Array.prototype.forEach.call(body.querySelectorAll('button'), function (b) {
+      b.addEventListener('click', function () { el('getHash').value = b.getAttribute('data-h'); el('getHash').scrollIntoView({behavior:'smooth'}); el('getHash').focus(); });
+    });
+  });
+}
+el('refresh1').addEventListener('click', function (ev) { ev.preventDefault(); refreshStatus(); });
+el('refresh2').addEventListener('click', function (ev) { ev.preventDefault(); refreshDiscover(); });
+
+// language switcher
+el('langSel').addEventListener('change', function () { setLang(el('langSel').value); });
+
+applyLang();
+setInterval(refreshStatus, 1500);
+setInterval(refreshDiscover, 5000);
+</script>
+</body>
+</html>

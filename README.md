@@ -49,6 +49,17 @@ cd chuanshu
 go build -o chuanshu ./cmd/chuanshu
 ```
 
+A pure-Python implementation lives in [`python/`](python/) and is
+**wire-compatible** with the Go version: a Python peer and a Go peer share the
+same info hash for a file and can seed each other directly. It has zero runtime
+dependencies (standard library only) and is published to PyPI.
+
+```sh
+pipx install chuanshu     # or: pip install chuanshu
+```
+
+See [`python/README.md`](python/README.md) for details.
+
 ## Usage
 
 A file is identified by its **info hash** (a short hex digest of its content).
