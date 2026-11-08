@@ -117,8 +117,13 @@ If a terminal is not your thing, run the same node as a background service and
 open a browser tab to drive it.
 
 ```sh
-chuanshu serve            # prints a URL like http://127.0.0.1:52345/ and opens it
+chuanshu                    # no args: starts the node + UI and opens your browser
+chuanshu serve              # equivalent; prints a URL like http://127.0.0.1:52345/
 ```
+
+Double-clicking the binary does the same thing as running it with no arguments:
+it starts a node, binds the loopback UI, and immediately opens your default
+browser to it so you can start sharing right away.
 
 The UI lets you pick a file to share (via the native OS file dialog, or type
 the path directly), paste a hash to download, choose a destination folder, and

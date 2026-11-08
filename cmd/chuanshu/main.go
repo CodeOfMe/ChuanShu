@@ -27,9 +27,14 @@ const (
 )
 
 func main() {
+	// With no arguments (e.g. double-clicking the binary), default to the web
+	// UI so it "just works": a node starts and the browser opens to it.
 	if len(os.Args) < 2 {
-		usage()
-		os.Exit(2)
+		if err := cmdServe(nil); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			os.Exit(1)
+		}
+		return
 	}
 	var err error
 	switch os.Args[1] {
@@ -62,12 +67,16 @@ func usage() {
 	fmt.Print(`chuanshu 传书 - LAN P2P file transfer
 
 Usage:
-  chuanshu share <file> [--piece KiB]      Share a file and seed it
-  chuanshu get   <hash> [--out DIR]        Fetch a file by its info hash
-  chuanshu ls    [--wait S]                List files shared on the LAN
-  chuanshu hash  <file> [--piece KiB]      Print a file's info hash
-  chuanshu serve [--addr 127.0.0.1:0]      Start local web UI (optional GUI)
-  chuanshu version                         Show version
+  chuanshu                                     Open the web UI (default)
+  chuanshu serve [--addr 127.0.0.1:0]         Start local web UI
+  chuanshu share <file> [--piece KiB]         Share a file and seed it
+  chuanshu get   <hash> [--out DIR]           Fetch a file by its info hash
+  chuanshu ls    [--wait S]                   List files shared on the LAN
+  chuanshu hash  <file> [--piece KiB]         Print a file's info hash
+  chuanshu version                            Show version
+
+Running with no arguments (or double-clicking the binary) starts the web UI and
+opens it in your browser.
 
 A file is identified by its info hash. Run "share" on the machine that has the
 file; everyone else runs "get <hash>" (or "ls" to browse). Anyone with a
