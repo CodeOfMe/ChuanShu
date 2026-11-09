@@ -39,18 +39,44 @@ def _run(argv: list, timeout: int = 300) -> str:
     return path
 
 
+# Windows: -STA forces a single-threaded apartment (WinForms dialogs require
+# it), -WindowStyle Hidden stops the PowerShell console flashing. The dialog
+# gets a real owner: an ownerless ShowDialog() lands at the ownerless z-order,
+# usually *behind* the browser, so the user thinks nothing happened. The owner
+# is a 1x1 transparent topmost form at screen centre -- invisible, but it pulls
+# the owned dialog above the browser and keeps the dialog screen-centred.
+# Same design as Go internal/web/dialog.go.
+_PS_WIN_OWNER = (
+    "$ErrorActionPreference='Stop';"
+    "Add-Type -AssemblyName System.Windows.Forms;"
+    "$o = New-Object System.Windows.Forms.Form;"
+    "$o.Text = ''; $o.ShowInTaskbar = $false;"
+    "$o.TopMost = $true; $o.Opacity = 0;"
+    "$o.Width = 1; $o.Height = 1;"
+    "[void]$o.Show();"
+)
+_PS_WIN_CLOSE = "; [void]$o.Close()"
+
+
+def _win_argv(script: str) -> list:
+    return ["powershell", "-NoProfile", "-NonInteractive", "-STA",
+            "-WindowStyle", "Hidden", "-Command", script]
+
+
 def pick_file() -> str:
     if sys.platform == "darwin":
         script = 'POSIX path of (choose file with prompt "选择文件 / Choose a file")'
         return _run(["osascript", "-e", script])
     if sys.platform.startswith("win"):
         ps = (
-            "Add-Type -AssemblyName System.Windows.Forms;"
+            _PS_WIN_OWNER +
             "$d = New-Object System.Windows.Forms.OpenFileDialog;"
             "$d.CheckFileExists = $true;"
-            "if ($d.ShowDialog() -eq 'OK') { Write-Output $d.FileName }"
+            "$d.Title = '选择文件 / Choose a file';"
+            "if ($d.ShowDialog($o) -eq 'OK') { Write-Output $d.FileName }"
+            + _PS_WIN_CLOSE
         )
-        return _run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps])
+        return _run(_win_argv(ps))
     if shutil.which("zenity"):
         return _run(["zenity", "--file-selection"])
     if shutil.which("kdialog"):
@@ -64,11 +90,13 @@ def pick_folder() -> str:
         return _run(["osascript", "-e", script])
     if sys.platform.startswith("win"):
         ps = (
-            "Add-Type -AssemblyName System.Windows.Forms;"
+            _PS_WIN_OWNER +
             "$d = New-Object System.Windows.Forms.FolderBrowserDialog;"
-            "if ($d.ShowDialog() -eq 'OK') { Write-Output $d.SelectedPath }"
+            "$d.Description = '选择文件夹 / Choose a folder';"
+            "if ($d.ShowDialog($o) -eq 'OK') { Write-Output $d.SelectedPath }"
+            + _PS_WIN_CLOSE
         )
-        return _run(["powershell", "-NoProfile", "-NonInteractive", "-Command", ps])
+        return _run(_win_argv(ps))
     if shutil.which("zenity"):
         return _run(["zenity", "--file-selection", "--directory"])
     if shutil.which("kdialog"):

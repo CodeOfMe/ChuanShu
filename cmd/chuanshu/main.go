@@ -21,7 +21,7 @@ import (
 )
 
 const (
-	version = "0.1.0"
+	version = "0.1.1"
 	// findTimeout bounds how long "get" waits for a seeder to appear.
 	findTimeout = 120 * time.Second
 )

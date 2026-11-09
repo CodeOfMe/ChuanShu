@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chuanshu"
-version = "0.1.0"
+version = "0.1.1"
 description = "传书 —— 零配置局域网 P2P 文件传输（BitTorrent 式分片 + 组播发现 + 本地网页界面）"
 readme = "README.md"
 requires-python = ">=3.9"

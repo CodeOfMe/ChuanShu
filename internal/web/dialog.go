@@ -116,20 +116,48 @@ func appleScript(kind dialogKind) (string, []string) {
 }
 
 // powershell builds a PowerShell argv using Windows Forms file dialogs.
+//
+// Two details matter for the dialog to actually appear:
+//
+//   - The script runs with -STA. Windows Forms dialogs require a
+//     single-threaded apartment; powershell.exe defaults to STA on modern
+//     systems, but a machine-wide registry setting can flip it to MTA, which
+//     makes ShowDialog() fail or render nothing.
+//   - ShowDialog() gets a real owner window. An ownerless dialog lands at the
+//     ownerless z-order, which typically sits *behind* the browser window
+//     that issued the request, so it looks like nothing happened. We show a
+//     1x1 fully transparent, topmost owner centered on screen: owned dialogs
+//     stay above their owner, a topmost owner keeps the dialog above the
+//     browser, and the dialog still opens screen-centered because the
+//     invisible owner is centered too.
+//
+// -WindowStyle Hidden keeps powershell's own console window from flashing.
 func powershell(kind dialogKind) (string, []string) {
-	var script string
+	owner := `$ErrorActionPreference='Stop';` +
+		`Add-Type -AssemblyName System.Windows.Forms;` +
+		`$o = New-Object System.Windows.Forms.Form;` +
+		`$o.Text = ''; $o.ShowInTaskbar = $false;` +
+		`$o.TopMost = $true; $o.Opacity = 0;` +
+		`$o.Width = 1; $o.Height = 1;` +
+		`[void]$o.Show();`
+	closeOwner := `; [void]$o.Close()`
 	switch kind {
 	case dialogFolder:
-		script = `Add-Type -AssemblyName System.Windows.Forms;` +
+		script := owner +
 			`$d = New-Object System.Windows.Forms.FolderBrowserDialog;` +
-			`if ($d.ShowDialog() -eq 'OK') { Write-Output $d.SelectedPath }`
+			`$d.Description = '选择文件夹 / Choose a folder';` +
+			`if ($d.ShowDialog($o) -eq 'OK') { Write-Output $d.SelectedPath }` +
+			closeOwner
+		return "powershell", []string{"-NoProfile", "-NonInteractive", "-STA", "-WindowStyle", "Hidden", "-Command", script}
 	default:
-		script = `Add-Type -AssemblyName System.Windows.Forms;` +
+		script := owner +
 			`$d = New-Object System.Windows.Forms.OpenFileDialog;` +
 			`$d.CheckFileExists = $true;` +
-			`if ($d.ShowDialog() -eq 'OK') { Write-Output $d.FileName }`
+			`$d.Title = '选择文件 / Choose a file';` +
+			`if ($d.ShowDialog($o) -eq 'OK') { Write-Output $d.FileName }` +
+			closeOwner
+		return "powershell", []string{"-NoProfile", "-NonInteractive", "-STA", "-WindowStyle", "Hidden", "-Command", script}
 	}
-	return "powershell", []string{"-NoProfile", "-NonInteractive", "-Command", script}
 }
 
 // unixDialog finds an available zenity or kdialog and builds its argv.
